@@ -1,0 +1,29 @@
+name: Build
+
+on:
+  push:
+    branches: [main, Dev, Live]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Verify imports
+        run: python -c "from app.config import settings; print(f'Config OK: port={settings.agent_framework_port}')"
+
+      - name: Build Docker image
+        run: docker build -t loom-ai-agent-framework .

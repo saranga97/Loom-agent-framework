@@ -1,0 +1,12 @@
+services:
+  agent:
+    build: .
+    ports:
+      - "8002:8002"
+    env_file:
+      - .env
+    environment:
+      DOC_RETRIEVER_URL: "http://host.docker.internal:8001"
+    volumes:
+      - ./configs:/app/configs
+    restart: on-failure

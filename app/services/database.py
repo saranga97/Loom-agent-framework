@@ -1,12 +1,12 @@
 # Loom AI - Agent Framework | MongoDB Database Service
+import os
 
 from motor.motor_asyncio import AsyncIOMotorClient
 from app.config import settings
 
 _client: AsyncIOMotorClient | None = None
 
-DATABASE_NAME = "loom_ai"
-
+DATABASE_NAME = os.environ.get("CHAT_HISTORY_DATABASE_NAME")
 
 async def connect():
     global _client

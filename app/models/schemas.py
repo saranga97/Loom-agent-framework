@@ -1,5 +1,6 @@
 # Loom AI - Agent Framework | Pydantic Schemas
 
+from datetime import datetime
 from pydantic import BaseModel, Field
 
 
@@ -35,3 +36,38 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     response: str
     tenant_name: str
+
+
+class StartChatRequest(BaseModel):
+    username: str
+
+
+class StartChatResponse(BaseModel):
+    room_id: str
+    username: str
+    greeting: str
+
+
+class ChatMessage(BaseModel):
+    role: str
+    content: str
+    timestamp: datetime | None = None
+
+
+class ChatRoomSummary(BaseModel):
+    room_id: str
+    username: str
+    created_at: datetime
+    updated_at: datetime | None = None
+    message_count: int = 0
+
+
+class ChatRoomListResponse(BaseModel):
+    rooms: list[ChatRoomSummary]
+    total: int
+
+
+class ChatHistoryResponse(BaseModel):
+    room_id: str
+    username: str
+    messages: list[ChatMessage]

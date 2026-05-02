@@ -5,18 +5,19 @@ from pathlib import Path
 from pydantic_settings import BaseSettings
 
 _project_root = Path(__file__).resolve().parent.parent
-_environment = os.getenv("ENVIRONMENT", "live")
-_env_file = _project_root / f".env.{_environment}"
+_environment = os.getenv("ENVIRONMENT")
+_env_file = _project_root / ".env"
 _env_fallback = _project_root / ".env"
 
 
 class Settings(BaseSettings):
-    environment: str = "live"
+    environment: str = "dev"
     agent_framework_port: int = 8002
     doc_retriever_url: str = "http://localhost:8001"
     openai_api_key: str = ""
     anthropic_api_key: str = ""
     google_api_key: str = ""
+    mongodb_url: str = ""
     configs_dir: str = str(_project_root / "configs")
 
     model_config = {

@@ -8,3 +8,4 @@ class AgentState(TypedDict):
     messages: Annotated[list, add_messages]
     tenant_name: str
     tenant_config: dict
+    chat_summary: str

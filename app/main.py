@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.routers import chat, tenants
+from app.services import database
 
 
 @asynccontextmanager
@@ -13,7 +14,9 @@ async def lifespan(app: FastAPI):
     print(f"[Loom AI] Agent Framework starting on port {settings.agent_framework_port}")
     print(f"[Loom AI] Environment: {settings.environment}")
     print(f"[Loom AI] Doc Retriever: {settings.doc_retriever_url}")
+    await database.connect()
     yield
+    await database.disconnect()
     print("[Loom AI] Agent Framework shutting down")
 
 

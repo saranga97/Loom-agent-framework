@@ -1,7 +1,7 @@
 # Loom AI - Agent Framework | SSE Streaming Chat Router
 
 import json
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
 from sse_starlette.sse import EventSourceResponse
 from langchain_core.messages import HumanMessage
 
@@ -161,3 +161,110 @@ async def chat(tenant_name: str, room_id: str, body: ChatRequest):
             yield {"event": "error", "data": json.dumps({"error": str(e)})}
 
     return EventSourceResponse(event_generator())
+
+
+@router.websocket("/{tenant_name}/{room_id}/ws")
+async def chat_ws(websocket: WebSocket, tenant_name: str, room_id: str):
+    """WebSocket streaming chat — mirrors SSE event protocol."""
+    config = await tenant_service.get_tenant(tenant_name)
+    if config is None:
+        await websocket.close(code=4004, reason=f"Tenant '{tenant_name}' not found")
+        return
+
+    room = await chat_history.get_history(tenant_name, room_id)
+    if room is None:
+        await websocket.close(code=4004, reason=f"Room '{room_id}' not found")
+        return
+
+    await websocket.accept()
+
+    username = room["username"]
+
+    try:
+        while True:
+            data = await websocket.receive_json()
+            message = data.get("content", "")
+            if not message:
+                continue
+
+            # Reload history each turn for up-to-date context
+            room = await chat_history.get_history(tenant_name, room_id)
+
+            config_dict = config.model_dump()
+            config_dict["agent_instructions"] = (
+                config_dict["agent_instructions"]
+                + f"\nThe user's name is {username}. Address them by name naturally."
+            )
+
+            agent_graph = build_agent_graph(config_dict)
+
+            history_lines = []
+            for msg in room.get("messages", []):
+                role = msg.get("role", "")
+                content = msg.get("content", "")
+                if role == "user":
+                    history_lines.append(f"User: {content}")
+                elif role == "assistant":
+                    history_lines.append(f"Assistant: {content}")
+
+            chat_summary = ""
+            if history_lines:
+                chat_summary = "Previous conversation:\n" + "\n".join(history_lines)
+
+            await chat_history.save_message(tenant_name, room_id, "user", message)
+
+            initial_state = {
+                "messages": [HumanMessage(content=message)],
+                "tenant_name": tenant_name,
+                "tenant_config": config_dict,
+                "chat_summary": chat_summary,
+            }
+
+            full_response = ""
+            try:
+                async for event in agent_graph.astream_events(initial_state, version="v2"):
+                    kind = event.get("event", "")
+                    metadata = event.get("metadata", {})
+                    node = metadata.get("langgraph_node", "")
+
+                    if kind == "on_chat_model_stream" and node == "response":
+                        chunk = event.get("data", {}).get("chunk")
+                        if chunk and hasattr(chunk, "content") and chunk.content:
+                            full_response += chunk.content
+                            await websocket.send_json({
+                                "event": "token",
+                                "data": {"content": chunk.content},
+                            })
+
+                    elif kind == "on_tool_start":
+                        tool_input = event.get("data", {}).get("input", {})
+                        await websocket.send_json({
+                            "event": "tool_call",
+                            "data": {
+                                "tool": event.get("name", ""),
+                                "input": tool_input if isinstance(tool_input, dict) else {"query": str(tool_input)},
+                            },
+                        })
+
+                    elif kind == "on_tool_end":
+                        output = event.get("data", {}).get("output", "")
+                        if hasattr(output, "content"):
+                            output = output.content
+                        await websocket.send_json({
+                            "event": "tool_result",
+                            "data": {
+                                "tool": event.get("name", ""),
+                                "result": str(output)[:500],
+                            },
+                        })
+
+                if full_response:
+                    await chat_history.save_message(tenant_name, room_id, "assistant", full_response)
+
+                await websocket.send_json({"event": "done", "data": {"status": "complete"}})
+
+            except Exception as e:
+                await websocket.send_json({"event": "error", "data": {"error": str(e)}})
+
+    except WebSocketDisconnect:
+        pass

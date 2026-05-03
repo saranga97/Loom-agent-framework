@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     anthropic_api_key: str = ""
     google_api_key: str = ""
     mongodb_url: str = ""
+    chat_history_database_name: str = "loom_ai"
     configs_dir: str = str(_project_root / "configs")
 
     model_config = {

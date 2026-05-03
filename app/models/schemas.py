@@ -20,6 +20,7 @@ class TenantConfig(BaseModel):
     response_model: str = "gpt-4.1-mini"
     retriever_top_k: int = Field(default=5, ge=1, le=100)
     retriever_min_confidence: float = Field(default=0.3, ge=0.0, le=1.0)
+    logo_url: str | None = None
     theme_colors: ThemeColors = Field(default_factory=ThemeColors)
 
 

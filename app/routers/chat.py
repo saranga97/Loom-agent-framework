@@ -17,6 +17,7 @@ from app.models.schemas import (
 from app.services import tenant as tenant_service
 from app.services import chat_history
 from app.graph.builder import build_agent_graph
+from app.llm.factory import get_llm
 
 router = APIRouter(prefix="/api/v1/chat", tags=["chat"])
 
@@ -31,7 +32,17 @@ async def start_chat(tenant_name: str, body: StartChatRequest):
     room_id = await chat_history.create_room(tenant_name, body.username)
 
     chatbot_name = config.chatbot_name
-    greeting = f"Hello {body.username}! I'm {chatbot_name}. How can I help you today?"
+    llm = get_llm(config.response_llm_provider, config.response_model)
+    greeting_response = await llm.ainvoke([
+        {"role": "system", "content": (
+            f"You are {chatbot_name}. {config.agent_instructions}\n"
+            f"Generate a short, friendly greeting for a user named {body.username} "
+            f"who just opened the chat. Be warm and natural — vary your tone and wording. "
+            f"1-2 sentences max. Do not use markdown."
+        )},
+        {"role": "user", "content": "Say hello and offer to help."},
+    ])
+    greeting = greeting_response.content
 
     await chat_history.save_message(tenant_name, room_id, "assistant", greeting)
 

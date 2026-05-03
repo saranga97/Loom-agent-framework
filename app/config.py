@@ -19,7 +19,6 @@ class Settings(BaseSettings):
     google_api_key: str = ""
     mongodb_url: str = ""
     chat_history_database_name: str = "loom_ai"
-    configs_dir: str = str(_project_root / "configs")
 
     model_config = {
         "env_file": (_env_file, _env_fallback),

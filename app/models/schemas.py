@@ -15,7 +15,7 @@ class TenantConfig(BaseModel):
     agent_instructions: str = "You are a helpful assistant."
     agent_llm_provider: str = "openai"
     agent_model: str = "gpt-4.1"
-    response_instructions: str = "Format responses clearly and concisely."
+    response_instructions: str = "Format responses in Markdown. Use headings, bullet points, numbered lists, bold, and code blocks where appropriate. Keep responses clear and well-structured."
     response_llm_provider: str = "openai"
     response_model: str = "gpt-4.1-mini"
     retriever_top_k: int = Field(default=5, ge=1, le=100)

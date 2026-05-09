@@ -7,6 +7,13 @@ from pydantic import BaseModel, Field
 class ThemeColors(BaseModel):
     primary: str = "#6366f1"
     secondary: str = "#8b5cf6"
+    text: str = "#0F172A"
+    background: str = "#FFFFFF"
+    mode: str = "light"
+    position: str = "right"
+    floating_icon: str = "💬"
+    header_icon: str = "🤖"
+    animation: str = "anim-bounce"
 
 
 class TenantConfig(BaseModel):
@@ -22,6 +29,8 @@ class TenantConfig(BaseModel):
     retriever_min_confidence: float = Field(default=0.3, ge=0.0, le=1.0)
     logo_url: str | None = None
     theme_colors: ThemeColors = Field(default_factory=ThemeColors)
+    owner_email: str | None = None
+    package_slug: str | None = None
 
 
 class TenantListResponse(BaseModel):

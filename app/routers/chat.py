@@ -19,7 +19,7 @@ from app.services import chat_history
 from app.graph.builder import build_agent_graph
 from app.llm.factory import get_llm
 
-router = APIRouter(prefix="/api/v1/chat", tags=["chat"])
+router = APIRouter(prefix="/api/v1/chat", tags=["Chat"])
 
 
 @router.post("/{tenant_name}/start", response_model=StartChatResponse)

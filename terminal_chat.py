@@ -59,12 +59,76 @@ def select_tenant(tenants: list[dict]) -> str:
             sys.exit(0)
 
 
-def stream_chat(tenant_name: str, message: str, history: list[dict]):
-    url = f"{BASE_URL}/api/v1/chat/{tenant_name}"
+def get_username() -> str:
+    while True:
+        try:
+            username = input("\n  Enter your username: ").strip()
+            if username:
+                return username
+            print("  Username cannot be empty.")
+        except (KeyboardInterrupt, EOFError):
+            print("\n\n  Goodbye!")
+            sys.exit(0)
+
+
+def list_rooms(tenant_name: str) -> list[dict]:
+    try:
+        response = httpx.get(f"{BASE_URL}/api/v1/chat/{tenant_name}/rooms", timeout=10.0)
+        response.raise_for_status()
+        return response.json().get("rooms", [])
+    except Exception:
+        return []
+
+
+def select_or_create_room(tenant_name: str, username: str) -> tuple[str, str | None]:
+    """Returns (room_id, greeting_or_none). Greeting is set only for new rooms."""
+    rooms = list_rooms(tenant_name)
+
+    if rooms:
+        print(f"\n  Existing chat rooms for '{tenant_name}':")
+        print("-" * 60)
+        for i, r in enumerate(rooms, 1):
+            created = r.get("created_at", "")[:19]
+            print(f"  [{i}] {r['room_id']} | {r['username']} | {r.get('message_count', 0)} msgs | {created}")
+        print(f"  [N] Start a new chat")
+        print("-" * 60)
+
+        while True:
+            try:
+                choice = input(f"\n  Select room (1-{len(rooms)}) or N for new: ").strip().lower()
+                if choice == "n":
+                    break
+                idx = int(choice) - 1
+                if 0 <= idx < len(rooms):
+                    return rooms[idx]["room_id"], None
+                print(f"  Please enter a number between 1 and {len(rooms)}, or N")
+            except ValueError:
+                print("  Please enter a valid number or N")
+            except (KeyboardInterrupt, EOFError):
+                print("\n\n  Goodbye!")
+                sys.exit(0)
+
+    # Create new room
+    try:
+        response = httpx.post(
+            f"{BASE_URL}/api/v1/chat/{tenant_name}/start",
+            json={"username": username},
+            timeout=10.0,
+        )
+        response.raise_for_status()
+        data = response.json()
+        return data["room_id"], data["greeting"]
+    except Exception as e:
+        print(f"\n  [ERROR] Failed to create chat room: {e}")
+        sys.exit(1)
+
+
+def stream_chat(tenant_name: str, room_id: str, message: str):
+    url = f"{BASE_URL}/api/v1/chat/{tenant_name}/{room_id}"
     full_response = ""
 
     try:
-        with httpx.stream("POST", url, json={"message": message, "conversation_history": history}, timeout=120.0) as response:
+        with httpx.stream("POST", url, json={"message": message}, timeout=120.0) as response:
             response.raise_for_status()
             event_type = None
 
@@ -112,10 +176,16 @@ def main():
 
     tenants = list_tenants()
     tenant_name = select_tenant(tenants)
-    print(f"\n  [OK] Chatting with tenant: {tenant_name}")
+    username = get_username()
+
+    room_id, greeting = select_or_create_room(tenant_name, username)
+
+    print(f"\n  [OK] Room: {room_id}")
+    print(f"  [OK] Chatting as: {username}")
     print("  Type your message below. Type 'quit' or 'exit' to stop.\n")
 
-    conversation_history = []
+    if greeting:
+        print(f"  Bot: {greeting}\n")
 
     while True:
         try:
@@ -133,12 +203,8 @@ def main():
             continue
 
         print("\n  Bot: ", end="", flush=True)
-        response = stream_chat(tenant_name, message, conversation_history)
+        stream_chat(tenant_name, room_id, message)
         print("\n")
-
-        if response:
-            conversation_history.append({"role": "user", "content": message})
-            conversation_history.append({"role": "assistant", "content": response})
 
 
 if __name__ == "__main__":
